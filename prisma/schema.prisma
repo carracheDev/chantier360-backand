@@ -1,0 +1,448 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PermissionLevel {
+  LECTURE
+  SAISIE
+  VALIDATION
+  ADMINISTRATION
+}
+
+enum ChantierStatus {
+  PLANIFIE
+  EN_COURS
+  EN_PAUSE
+  TERMINE
+  ANNULE
+}
+
+enum ExpenseStatus {
+  BROUILLON
+  SOUMISE
+  VALIDEE
+  REJETEE
+}
+
+enum JournalStatus {
+  BROUILLON
+  SOUMIS
+  VALIDE
+}
+
+enum MaterialMovementType {
+  ENTREE
+  SORTIE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  RETARD
+}
+
+enum TaskStatus {
+  A_FAIRE
+  EN_COURS
+  TERMINE
+  BLOQUE
+}
+
+enum IncidentSeverity {
+  FAIBLE
+  MOYENNE
+  CRITIQUE
+}
+
+enum IncidentStatus {
+  OUVERT
+  EN_COURS
+  RESOLU
+  FERME
+}
+
+enum ReportType {
+  QUOTIDIEN
+  HEBDOMADAIRE
+  CHANTIER
+}
+
+enum FileAssetKind {
+  PHOTO
+  JUSTIFICATIF
+  RAPPORT
+  AUTRE
+}
+
+model Company {
+  id                String             @id @default(uuid()) @db.Uuid
+  name              String             @unique @db.VarChar(150)
+  address           String?            @db.VarChar(255)
+  phone             String?            @db.VarChar(50)
+  createdAt         DateTime           @default(now())
+  users             User[]
+  roles             Role[]
+  projectMembers    ProjectMember[]
+  chantiers         Chantier[]
+  materials         Material[]
+  materialMovements MaterialMovement[]
+  expenses          Expense[]
+  workers           Worker[]
+  attendances       Attendance[]
+  journalEntries    JournalEntry[]
+  tasks             Task[]
+  incidents         Incident[]
+  reports           Report[]
+  fileAssets        FileAsset[]
+  auditLogs         AuditLog[]
+}
+
+model User {
+  id                String             @id @default(uuid()) @db.Uuid
+  name              String             @db.VarChar(150)
+  email             String             @db.VarChar(255)
+  phone             String?            @db.VarChar(50)
+  passwordHash      String             @db.VarChar(255)
+  active            Boolean            @default(true)
+  companyId         String             @db.Uuid
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  userRoles         UserRole[]
+  projectMembers    ProjectMember[]
+  expenses          Expense[]
+  materialMovements MaterialMovement[]
+  journalEntries    JournalEntry[]
+  incidents         Incident[]
+  reports           Report[]
+  fileAssets        FileAsset[]
+  auditLogs         AuditLog[]
+
+  @@unique([companyId, email])
+  @@index([companyId])
+  @@index([companyId, active])
+}
+
+model Role {
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String           @db.VarChar(80)
+  description     String?          @db.VarChar(255)
+  companyId       String           @db.Uuid
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+model Permission {
+  id              String           @id @default(uuid()) @db.Uuid
+  code            String           @unique @db.VarChar(120)
+  description     String?          @db.VarChar(255)
+  level           PermissionLevel  @default(LECTURE)
+  rolePermissions RolePermission[]
+}
+
+model UserRole {
+  userId String @db.Uuid
+  roleId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+}
+
+model RolePermission {
+  roleId       String     @db.Uuid
+  permissionId String     @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model ProjectMember {
+  userId     String   @db.Uuid
+  chantierId String   @db.Uuid
+  companyId  String   @db.Uuid
+  assignedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  chantier   Chantier @relation(fields: [chantierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([userId, chantierId])
+  @@index([companyId])
+  @@index([chantierId])
+}
+
+model Chantier {
+  id                String             @id @default(uuid()) @db.Uuid
+  companyId         String             @db.Uuid
+  name              String             @db.VarChar(180)
+  description       String?            @db.Text
+  location          String?            @db.VarChar(255)
+  budget            Decimal            @db.Decimal(18, 2)
+  progress          Decimal            @default(0) @db.Decimal(5, 2)
+  startDate         DateTime           @db.Date
+  endDate           DateTime?          @db.Date
+  status            ChantierStatus     @default(PLANIFIE)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  projectMembers    ProjectMember[]
+  materialMovements MaterialMovement[]
+  expenses          Expense[]
+  workers           Worker[]
+  attendances       Attendance[]
+  journalEntries    JournalEntry[]
+  tasks             Task[]
+  incidents         Incident[]
+  reports           Report[]
+  fileAssets        FileAsset[]
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, endDate])
+}
+
+model Material {
+  id           String             @id @default(uuid()) @db.Uuid
+  companyId    String             @db.Uuid
+  name         String             @db.VarChar(150)
+  unit         String             @db.VarChar(30)
+  minimumStock Decimal            @default(0) @db.Decimal(18, 3)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  company      Company            @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  movements    MaterialMovement[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+model MaterialMovement {
+  id         String               @id @default(uuid()) @db.Uuid
+  companyId  String               @db.Uuid
+  chantierId String               @db.Uuid
+  materialId String               @db.Uuid
+  userId     String?              @db.Uuid
+  type       MaterialMovementType
+  quantity   Decimal              @db.Decimal(18, 3)
+  unitCost   Decimal?             @db.Decimal(18, 2)
+  date       DateTime             @default(now())
+  reference  String?              @db.VarChar(120)
+  createdAt  DateTime             @default(now())
+  company    Company              @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  chantier   Chantier             @relation(fields: [chantierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  material   Material             @relation(fields: [materialId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user       User?                @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([companyId])
+  @@index([chantierId, date])
+  @@index([materialId, date])
+  @@index([userId])
+}
+
+model Expense {
+  id          String        @id @default(uuid()) @db.Uuid
+  companyId   String        @db.Uuid
+  chantierId  String        @db.Uuid
+  userId      String?       @db.Uuid
+  category    String        @db.VarChar(100)
+  amount      Decimal       @db.Decimal(18, 2)
+  description String?       @db.Text
+  status      ExpenseStatus @default(BROUILLON)
+  date        DateTime      @db.Date
+  receiptUrl  String?       @db.VarChar(500)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  chantier    Chantier      @relation(fields: [chantierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user        User?         @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([companyId])
+  @@index([chantierId, date])
+  @@index([chantierId, status])
+  @@index([userId])
+}
+
+model Worker {
+  id          String       @id @default(uuid()) @db.Uuid
+  companyId   String       @db.Uuid
+  chantierId  String       @db.Uuid
+  name        String       @db.VarChar(150)
+  function    String       @db.VarChar(120)
+  phone       String?      @db.VarChar(50)
+  dailyRate   Decimal?     @db.Decimal(18, 2)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  chantier    Chantier     @relation(fields: [chantierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  attendances Attendance[]
+
+  @@index([companyId])
+  @@index([chantierId])
+}
+
+model Attendance {
+  id         String           @id @default(uuid()) @db.Uuid
+  companyId  String           @db.Uuid
+  chantierId String           @db.Uuid
+  workerId   String           @db.Uuid
+  date       DateTime         @db.Date
+  status     AttendanceStatus
+  hours      Decimal?         @db.Decimal(5, 2)
+  createdAt  DateTime         @default(now())
+  company    Company          @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  chantier   Chantier         @relation(fields: [chantierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  worker     Worker           @relation(fields: [workerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([workerId, date])
+  @@index([companyId])
+  @@index([chantierId, date])
+  @@index([workerId, date])
+}
+
+model JournalEntry {
+  id           String        @id @default(uuid()) @db.Uuid
+  companyId    String        @db.Uuid
+  chantierId   String        @db.Uuid
+  userId       String?       @db.Uuid
+  date         DateTime      @db.Date
+  progress     Decimal       @default(0) @db.Decimal(5, 2)
+  description  String        @db.Text
+  weather      String?       @db.VarChar(100)
+  observations String?       @db.Text
+  status       JournalStatus @default(BROUILLON)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  chantier     Chantier      @relation(fields: [chantierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  photos       Photo[]
+
+  @@unique([chantierId, date])
+  @@index([companyId])
+  @@index([chantierId, date])
+  @@index([chantierId, status])
+  @@index([userId])
+}
+
+model Photo {
+  id             String       @id @default(uuid()) @db.Uuid
+  journalEntryId String       @db.Uuid
+  url            String       @db.VarChar(500)
+  caption        String?      @db.VarChar(255)
+  createdAt      DateTime     @default(now())
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([journalEntryId])
+}
+
+model Task {
+  id          String     @id @default(uuid()) @db.Uuid
+  companyId   String     @db.Uuid
+  chantierId  String     @db.Uuid
+  title       String     @db.VarChar(180)
+  description String?    @db.Text
+  startDate   DateTime?  @db.Date
+  dueDate     DateTime?  @db.Date
+  progress    Decimal    @default(0) @db.Decimal(5, 2)
+  status      TaskStatus @default(A_FAIRE)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  chantier    Chantier   @relation(fields: [chantierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([companyId])
+  @@index([chantierId, status])
+  @@index([chantierId, dueDate])
+}
+
+model Incident {
+  id          String           @id @default(uuid()) @db.Uuid
+  companyId   String           @db.Uuid
+  chantierId  String           @db.Uuid
+  userId      String?          @db.Uuid
+  title       String           @db.VarChar(180)
+  description String           @db.Text
+  severity    IncidentSeverity
+  status      IncidentStatus   @default(OUVERT)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  chantier    Chantier         @relation(fields: [chantierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([companyId])
+  @@index([chantierId, status])
+  @@index([chantierId, severity])
+  @@index([userId])
+}
+
+model Report {
+  id          String     @id @default(uuid()) @db.Uuid
+  companyId   String     @db.Uuid
+  chantierId  String     @db.Uuid
+  userId      String?    @db.Uuid
+  type        ReportType
+  periodStart DateTime   @db.Date
+  periodEnd   DateTime   @db.Date
+  fileUrl     String?    @db.VarChar(500)
+  createdAt   DateTime   @default(now())
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  chantier    Chantier   @relation(fields: [chantierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([companyId])
+  @@index([chantierId, type])
+  @@index([chantierId, periodStart, periodEnd])
+  @@index([userId])
+}
+
+model FileAsset {
+  id           String        @id @default(uuid()) @db.Uuid
+  companyId    String        @db.Uuid
+  chantierId   String?       @db.Uuid
+  uploadedById String?       @db.Uuid
+  kind         FileAssetKind
+  storageKey   String        @unique @db.VarChar(500)
+  originalName String        @db.VarChar(255)
+  mimeType     String        @db.VarChar(120)
+  sizeBytes    BigInt
+  targetType   String?       @db.VarChar(50)
+  targetId     String?       @db.Uuid
+  createdAt    DateTime      @default(now())
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  chantier     Chantier?     @relation(fields: [chantierId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  uploadedBy   User?         @relation(fields: [uploadedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([companyId, createdAt])
+  @@index([companyId, chantierId])
+  @@index([targetType, targetId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @db.Uuid
+  userId     String?  @db.Uuid
+  action     String   @db.VarChar(80)
+  entityType String   @db.VarChar(80)
+  entityId   String?  @db.Uuid
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([companyId, createdAt])
+  @@index([companyId, entityType, entityId])
+  @@index([userId, createdAt])
+}

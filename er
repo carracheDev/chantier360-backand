@@ -1,0 +1,16 @@
+ bibliotheque        | postgres    | UTF8     | libc            | fr_FR.UTF-8 | fr_FR.UTF-8 |            |           | 
+ bibliotheque_test   | postgres    | UTF8     | libc            | fr_FR.UTF-8 | fr_FR.UTF-8 |            |           | 
+ monbudget_db        | postgres    | UTF8     | libc            | fr_FR.UTF-8 | fr_FR.UTF-8 |            |           | 
+ pcc_dev             | pcc_staging | UTF8     | libc            | fr_FR.UTF-8 | fr_FR.UTF-8 |            |           | 
+ pcc_staging         | pcc_staging | UTF8     | libc            | fr_FR.UTF-8 | fr_FR.UTF-8 |            |           | 
+ pcc_staging_restore | pcc_staging | UTF8     | libc            | fr_FR.UTF-8 | fr_FR.UTF-8 |            |           | 
+ pcc_test            | pcc_staging | UTF8     | libc            | fr_FR.UTF-8 | fr_FR.UTF-8 |            |           | 
+ postgres            | postgres    | UTF8     | libc            | fr_FR.UTF-8 | fr_FR.UTF-8 |            |           | 
+ reservation_db      | postgres    | UTF8     | libc            | fr_FR.UTF-8 | fr_FR.UTF-8 |            |           | 
+ taches_test         | postgres    | UTF8     | libc            | fr_FR.UTF-8 | fr_FR.UTF-8 |            |           | 
+ tasktest            | carrache    | UTF8     | libc            | fr_FR.UTF-8 | fr_FR.UTF-8 |            |           | 
+ template0           | postgres    | UTF8     | libc            | fr_FR.UTF-8 | fr_FR.UTF-8 |            |           | =c/postgres          +
+                     |             |          |                 |             |             |            |           | postgres=CTc/postgres
+ template1           | postgres    | UTF8     | libc            | fr_FR.UTF-8 | fr_FR.UTF-8 |            |           | =c/postgres          +
+                     |             |          |                 |             |             |            |           | postgres=CTc/postgres
+

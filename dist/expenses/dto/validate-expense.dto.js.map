@@ -1,0 +1,1 @@
+{"version":3,"file":"validate-expense.dto.js","sourceRoot":"","sources":["../../../src/expenses/dto/validate-expense.dto.ts"],"names":[],"mappings":";;;;;;;;;AAAA,OAAO,EAAE,MAAM,EAAE,MAAM,iBAAiB,CAAC;AACzC,OAAO,EAAE,aAAa,EAAE,MAAM,gBAAgB,CAAC;AAE/C,MAAM,OAAO,kBAAkB;IAE7B,MAAM,CAAiB;CACxB;AADC;IADC,MAAM,CAAC,aAAa,CAAC;;kDACC"}

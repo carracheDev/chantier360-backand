@@ -1,0 +1,110 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { ExpenseStatus, Prisma } from '@prisma/client';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ExpensesService } from './expenses.service.js';
+
+const companyId = '11111111-1111-4111-8111-111111111111';
+const userId = '22222222-2222-4222-8222-222222222222';
+const chantierId = '33333333-3333-4333-8333-333333333333';
+const expenseId = '44444444-4444-4444-8444-444444444444';
+const createInput = {
+  chantierId,
+  category: 'Matériaux',
+  amount: 350000,
+  description: 'Achat de ciment',
+  date: '2026-09-18',
+};
+
+describe('ExpensesService', () => {
+  const projectMemberFindFirst = vi.fn();
+  const expenseFindMany = vi.fn();
+  const expenseFindFirst = vi.fn();
+  const expenseCreate = vi.fn();
+  const expenseUpdate = vi.fn();
+  const expenseUpdateMany = vi.fn();
+  const expenseAggregate = vi.fn();
+  const chantierFindFirst = vi.fn();
+  let service: ExpensesService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    projectMemberFindFirst.mockResolvedValue({ userId });
+    expenseCreate.mockResolvedValue({ id: expenseId, status: ExpenseStatus.BROUILLON });
+    expenseUpdate.mockResolvedValue({ id: expenseId });
+    expenseUpdateMany.mockResolvedValue({ count: 1 });
+    expenseFindFirst.mockResolvedValue({ id: expenseId, status: ExpenseStatus.BROUILLON });
+    chantierFindFirst.mockResolvedValue({ id: chantierId, budget: new Prisma.Decimal(1000), progress: new Prisma.Decimal(40) });
+    expenseAggregate.mockResolvedValue({ _sum: { amount: new Prisma.Decimal(250) } });
+    service = new ExpensesService({
+      projectMember: { findFirst: projectMemberFindFirst },
+      expense: {
+        findMany: expenseFindMany,
+        findFirst: expenseFindFirst,
+        create: expenseCreate,
+        update: expenseUpdate,
+        updateMany: expenseUpdateMany,
+        aggregate: expenseAggregate,
+      },
+      chantier: { findFirst: chantierFindFirst },
+    } as never);
+  });
+
+  it('creates a draft expense only for an assigned chantier', async () => {
+    await service.create(companyId, userId, createInput);
+
+    expect(expenseCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ companyId, chantierId, userId, amount: '350000' }),
+    }));
+  });
+
+  it('rejects an expense for an inaccessible chantier', async () => {
+    projectMemberFindFirst.mockResolvedValue(null);
+
+    await expect(service.create(companyId, userId, createInput)).rejects.toBeInstanceOf(NotFoundException);
+    expect(expenseCreate).not.toHaveBeenCalled();
+  });
+
+  it('prevents editing a submitted expense', async () => {
+    expenseFindFirst.mockResolvedValue({ id: expenseId, status: ExpenseStatus.SOUMISE });
+
+    await expect(service.update(companyId, userId, expenseId, { amount: 400000 }))
+      .rejects.toBeInstanceOf(BadRequestException);
+    expect(expenseUpdate).not.toHaveBeenCalled();
+  });
+
+  it('submits a draft and validates only submitted expenses', async () => {
+    await service.submit(companyId, userId, expenseId);
+    expect(expenseUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: expenseId, companyId, status: ExpenseStatus.BROUILLON },
+      data: { status: ExpenseStatus.SOUMISE },
+    }));
+
+    expenseFindFirst.mockResolvedValue({ id: expenseId, status: ExpenseStatus.SOUMISE });
+    await service.validate(companyId, userId, expenseId, { status: ExpenseStatus.VALIDEE });
+    expect(expenseUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: expenseId, companyId, status: ExpenseStatus.SOUMISE },
+      data: { status: ExpenseStatus.VALIDEE },
+    }));
+  });
+
+  it('rejects invalid validation statuses', async () => {
+    expenseFindFirst.mockResolvedValue({ id: expenseId, status: ExpenseStatus.SOUMISE });
+
+    await expect(service.validate(companyId, userId, expenseId, { status: ExpenseStatus.BROUILLON }))
+      .rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('calculates budget from validated expenses only', async () => {
+    const result = await service.getBudget(companyId, userId, chantierId);
+
+    expect(result.budget.equals(1000)).toBe(true);
+    expect(result.validatedExpenses.equals(250)).toBe(true);
+    expect(result.remainingBudget.equals(750)).toBe(true);
+    expect(result.consumedPercent.equals(25)).toBe(true);
+    expect(result.variance.equals(-15)).toBe(true);
+    expect(expenseAggregate).toHaveBeenCalledWith({
+      where: { companyId, chantierId, status: ExpenseStatus.VALIDEE },
+      _sum: { amount: true },
+    });
+  });
+});
