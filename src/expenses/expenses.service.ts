@@ -6,16 +6,6 @@ import { CreateExpenseDto } from './dto/create-expense.dto.js';
 import { UpdateExpenseDto } from './dto/update-expense.dto.js';
 import { ValidateExpenseDto } from './dto/validate-expense.dto.js';
 
-/**
- * Séparation saisie / validation : l'auteur d'une dépense ne peut pas la valider lui-même.
- * Seul le rôle d'arbitrage final y échappe, pour ne pas bloquer une structure réduite
- * (Directeur + Chef de chantier) où personne d'autre ne détient « expense.validate ».
- * L'auto-validation reste possible dans ce cas mais elle est tracée dans le journal d'audit
- * sous l'action EXPENSE_SELF_VALIDATED.
- * Doit rester aligné avec SELF_VALIDATION_EXEMPT_ROLE dans web/src/lib/permissions.ts.
- */
-const SELF_VALIDATION_EXEMPT_ROLE = 'DIRECTEUR';
-
 const expenseSelect = {
   id: true,
   companyId: true,
@@ -108,11 +98,14 @@ export class ExpensesService {
 
   /**
    * Arbitrage d'une dépense soumise : VALIDEE (impacte le budget) ou REJETEE (hors budget).
-   * Trois garde-fous :
+   * Deux garde-fous :
    * 1. seul le statut SOUMISE est arbitrable (sinon message expliquant l'état réel) ;
-   * 2. séparation saisie / validation : l'auteur ne peut pas valider sa propre dépense,
-   *    sauf rôle d'arbitrage final — il peut en revanche la retirer (rejet) ;
-   * 3. chaque arbitrage est journalisé dans AuditLog avec l'identifiant du validateur.
+   * 2. chaque arbitrage est journalisé dans AuditLog avec l'identifiant du validateur.
+   *
+   * La matrice du cahier des charges (§5) confie « expense.validate » au comptable et au
+   * directeur : ce sont eux les validateurs. L'auto-validation (le comptable valide une
+   * dépense qu'il a lui-même saisie) est donc autorisée — un blocage serait ingérable dans une
+   * petite structure — mais elle est tracée sous EXPENSE_SELF_VALIDATED pour rester visible.
    */
   async validate(companyId: string, userId: string, expenseId: string, input: ValidateExpenseDto) {
     const expense = await this.findAccessibleExpense(companyId, userId, expenseId);
@@ -123,13 +116,7 @@ export class ExpensesService {
       throw new BadRequestException(this.describeBlockedValidation(expense.status));
     }
 
-    const isOwnExpense = expense.userId === userId;
-    const selfValidated = isOwnExpense && input.status === ExpenseStatus.VALIDEE;
-    if (selfValidated && !(await this.isSelfValidationExempt(companyId, userId))) {
-      throw new BadRequestException(
-        'Séparation des tâches : vous avez saisi cette dépense, un autre profil disposant de « expense.validate » doit la valider. Vous pouvez toutefois la retirer en la rejetant.',
-      );
-    }
+    const selfValidated = expense.userId === userId && input.status === ExpenseStatus.VALIDEE;
 
     const updated = await this.prisma.expense.updateMany({
       where: { id: expenseId, companyId, status: ExpenseStatus.SOUMISE },
@@ -201,18 +188,6 @@ export class ExpensesService {
     });
     if (!expense) throw new NotFoundException('Dépense introuvable ou inaccessible.');
     return expense;
-  }
-
-  /**
-   * Vrai si l'utilisateur détient le rôle d'arbitrage final lui permettant de valider
-   * sa propre saisie (voir SELF_VALIDATION_EXEMPT_ROLE).
-   */
-  private async isSelfValidationExempt(companyId: string, userId: string) {
-    const userRoles = await this.prisma.userRole.findMany({
-      where: { userId, user: { companyId, active: true } },
-      select: { role: { select: { name: true } } },
-    });
-    return userRoles.some((userRole) => userRole.role.name === SELF_VALIDATION_EXEMPT_ROLE);
   }
 
   /** Message affiché tel quel dans le back-office : explique pourquoi l'arbitrage est refusé. */

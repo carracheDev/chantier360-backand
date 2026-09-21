@@ -18,7 +18,6 @@ const createInput = {
 
 describe('ExpensesService', () => {
   const projectMemberFindFirst = vi.fn();
-  const userRoleFindMany = vi.fn();
   const expenseFindMany = vi.fn();
   const expenseFindFirst = vi.fn();
   const expenseCreate = vi.fn();
@@ -32,8 +31,6 @@ describe('ExpensesService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     projectMemberFindFirst.mockResolvedValue({ userId });
-    // Par défaut : aucun rôle particulier (pas d'exemption d'auto-validation).
-    userRoleFindMany.mockResolvedValue([]);
     expenseCreate.mockResolvedValue({ id: expenseId, status: ExpenseStatus.BROUILLON });
     expenseUpdate.mockResolvedValue({ id: expenseId });
     expenseUpdateMany.mockResolvedValue({ count: 1 });
@@ -50,7 +47,6 @@ describe('ExpensesService', () => {
     auditRecord.mockResolvedValue({ id: 'audit-id' });
     service = new ExpensesService({
       projectMember: { findFirst: projectMemberFindFirst },
-      userRole: { findMany: userRoleFindMany },
       expense: {
         findMany: expenseFindMany,
         findFirst: expenseFindFirst,
@@ -115,38 +111,7 @@ describe('ExpensesService', () => {
       .rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('interdit à l’auteur de valider sa propre dépense (séparation des tâches)', async () => {
-    expenseFindFirst.mockResolvedValue({
-      id: expenseId,
-      status: ExpenseStatus.SOUMISE,
-      userId,
-      amount: new Prisma.Decimal(350000),
-      chantierId,
-    });
-
-    await expect(service.validate(companyId, userId, expenseId, { status: ExpenseStatus.VALIDEE }))
-      .rejects.toThrow('Séparation des tâches');
-    expect(expenseUpdateMany).not.toHaveBeenCalled();
-    expect(auditRecord).not.toHaveBeenCalled();
-  });
-
-  it('autorise l’auteur à retirer sa propre saisie en la rejetant', async () => {
-    expenseFindFirst.mockResolvedValue({
-      id: expenseId,
-      status: ExpenseStatus.SOUMISE,
-      userId,
-      amount: new Prisma.Decimal(350000),
-      chantierId,
-    });
-
-    await service.validate(companyId, userId, expenseId, { status: ExpenseStatus.REJETEE });
-
-    expect(expenseUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { status: ExpenseStatus.REJETEE } }));
-    expect(auditRecord).toHaveBeenCalledWith(expect.objectContaining({ action: 'EXPENSE_REJECTED', userId, entityId: expenseId }));
-    expect(userRoleFindMany).not.toHaveBeenCalled();
-  });
-
-  it('autorise le rôle d’arbitrage final à valider sa propre dépense et le trace', async () => {
+  it('autorise le validateur à valider sa propre saisie et le trace comme auto-validation', async () => {
     expenseFindFirst.mockResolvedValue({
       id: expenseId,
       status: ExpenseStatus.SOUMISE,
@@ -154,7 +119,6 @@ describe('ExpensesService', () => {
       amount: new Prisma.Decimal(10000000),
       chantierId,
     });
-    userRoleFindMany.mockResolvedValue([{ role: { name: 'DIRECTEUR' } }]);
 
     await service.validate(companyId, userId, expenseId, { status: ExpenseStatus.VALIDEE });
 
@@ -165,6 +129,25 @@ describe('ExpensesService', () => {
       entityType: 'Expense',
       entityId: expenseId,
       metadata: expect.objectContaining({ selfValidated: true, to: ExpenseStatus.VALIDEE }),
+    }));
+  });
+
+  it('journalise normalement le rejet d’une dépense saisie par un autre', async () => {
+    expenseFindFirst.mockResolvedValue({
+      id: expenseId,
+      status: ExpenseStatus.SOUMISE,
+      userId: otherUserId,
+      amount: new Prisma.Decimal(350000),
+      chantierId,
+    });
+
+    await service.validate(companyId, userId, expenseId, { status: ExpenseStatus.REJETEE });
+
+    expect(expenseUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { status: ExpenseStatus.REJETEE } }));
+    expect(auditRecord).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'EXPENSE_REJECTED',
+      userId,
+      entityId: expenseId,
     }));
   });
 

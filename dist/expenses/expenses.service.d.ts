@@ -113,6 +113,5 @@ export declare class ExpensesService {
     }>;
     private assertChantierMembership;
     private findAccessibleExpense;
-    private isSelfValidationExempt;
     private describeBlockedValidation;
 }

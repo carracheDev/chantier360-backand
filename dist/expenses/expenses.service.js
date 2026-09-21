@@ -11,7 +11,6 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { ExpenseStatus, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-const SELF_VALIDATION_EXEMPT_ROLE = 'DIRECTEUR';
 const expenseSelect = {
     id: true,
     companyId: true,
@@ -104,11 +103,7 @@ let ExpensesService = class ExpensesService {
         if (expense.status !== ExpenseStatus.SOUMISE) {
             throw new BadRequestException(this.describeBlockedValidation(expense.status));
         }
-        const isOwnExpense = expense.userId === userId;
-        const selfValidated = isOwnExpense && input.status === ExpenseStatus.VALIDEE;
-        if (selfValidated && !(await this.isSelfValidationExempt(companyId, userId))) {
-            throw new BadRequestException('Séparation des tâches : vous avez saisi cette dépense, un autre profil disposant de « expense.validate » doit la valider. Vous pouvez toutefois la retirer en la rejetant.');
-        }
+        const selfValidated = expense.userId === userId && input.status === ExpenseStatus.VALIDEE;
         const updated = await this.prisma.expense.updateMany({
             where: { id: expenseId, companyId, status: ExpenseStatus.SOUMISE },
             data: { status: input.status },
@@ -176,13 +171,6 @@ let ExpensesService = class ExpensesService {
         if (!expense)
             throw new NotFoundException('Dépense introuvable ou inaccessible.');
         return expense;
-    }
-    async isSelfValidationExempt(companyId, userId) {
-        const userRoles = await this.prisma.userRole.findMany({
-            where: { userId, user: { companyId, active: true } },
-            select: { role: { select: { name: true } } },
-        });
-        return userRoles.some((userRole) => userRole.role.name === SELF_VALIDATION_EXEMPT_ROLE);
     }
     describeBlockedValidation(status) {
         if (status === ExpenseStatus.BROUILLON) {
