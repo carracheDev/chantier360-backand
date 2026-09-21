@@ -54,9 +54,11 @@ const roleDefinitions = {
 
 const rolePermissionCodes: Record<keyof typeof roleDefinitions, string[]> = {
   DIRECTEUR: permissionDefinitions.map(([code]) => code),
+  // Matrice de référence (cahier des charges, §5) : sur le module Dépenses, le conducteur
+  // est en saisie (✏️) ; la validation (✅) est réservée au comptable et au directeur.
   CONDUCTEUR_TRAVAUX: [
     'chantier.read', 'chantier.update', 'chantier.validate', 'expense.read',
-    'expense.create', 'expense.update', 'expense.validate', 'material.read',
+    'expense.create', 'expense.update', 'material.read',
     'material.create', 'material.update', 'material.validate', 'journal.read',
     'journal.create', 'journal.update', 'journal.validate', 'report.read',
     'report.create',
@@ -115,6 +117,16 @@ async function main(): Promise<void> {
         create: { roleId: role.id, permissionId: permission.id },
       });
     }
+
+    // Le seed est la source de vérité de la matrice : une permission retirée de la définition
+    // doit être révoquée en base, sinon l'upsert ci-dessus ne ferait qu'ajouter des droits
+    // et une correction de matrice (ex. retrait de expense.validate au conducteur) resterait sans effet.
+    const grantedIds = rolePermissionCodes[name as keyof typeof roleDefinitions]
+      .map((code) => permissions.get(code)?.id)
+      .filter((id): id is string => Boolean(id));
+    await prisma.rolePermission.deleteMany({
+      where: { roleId: role.id, permissionId: { notIn: grantedIds } },
+    });
   }
 
   const userDefinitions = [

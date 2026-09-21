@@ -9,7 +9,9 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ExpenseStatus, Prisma } from '@prisma/client';
+import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+const SELF_VALIDATION_EXEMPT_ROLE = 'DIRECTEUR';
 const expenseSelect = {
     id: true,
     companyId: true,
@@ -27,8 +29,10 @@ const expenseSelect = {
 };
 let ExpensesService = class ExpensesService {
     prisma;
-    constructor(prisma) {
+    auditService;
+    constructor(prisma, auditService) {
         this.prisma = prisma;
+        this.auditService = auditService;
     }
     findAll(companyId, userId, chantierId) {
         return this.prisma.expense.findMany({
@@ -82,19 +86,54 @@ let ExpensesService = class ExpensesService {
         });
         if (updated.count === 0)
             throw new BadRequestException('La dépense ne peut pas être soumise dans son état actuel.');
+        await this.auditService.record({
+            companyId,
+            userId,
+            action: 'EXPENSE_SUBMITTED',
+            entityType: 'Expense',
+            entityId: expenseId,
+            metadata: { from: ExpenseStatus.BROUILLON, to: ExpenseStatus.SOUMISE },
+        });
         return this.prisma.expense.findFirst({ where: { id: expenseId, companyId }, select: expenseSelect });
     }
     async validate(companyId, userId, expenseId, input) {
-        await this.findAccessibleExpense(companyId, userId, expenseId);
+        const expense = await this.findAccessibleExpense(companyId, userId, expenseId);
         if (input.status !== ExpenseStatus.VALIDEE && input.status !== ExpenseStatus.REJETEE) {
             throw new BadRequestException('Le statut de validation doit être VALIDEE ou REJETEE.');
+        }
+        if (expense.status !== ExpenseStatus.SOUMISE) {
+            throw new BadRequestException(this.describeBlockedValidation(expense.status));
+        }
+        const isOwnExpense = expense.userId === userId;
+        const selfValidated = isOwnExpense && input.status === ExpenseStatus.VALIDEE;
+        if (selfValidated && !(await this.isSelfValidationExempt(companyId, userId))) {
+            throw new BadRequestException('Séparation des tâches : vous avez saisi cette dépense, un autre profil disposant de « expense.validate » doit la valider. Vous pouvez toutefois la retirer en la rejetant.');
         }
         const updated = await this.prisma.expense.updateMany({
             where: { id: expenseId, companyId, status: ExpenseStatus.SOUMISE },
             data: { status: input.status },
         });
-        if (updated.count === 0)
-            throw new BadRequestException('La dépense ne peut pas être validée dans son état actuel.');
+        if (updated.count === 0) {
+            throw new BadRequestException('La dépense a été arbitrée entre-temps : rechargez la page pour voir son statut actuel.');
+        }
+        await this.auditService.record({
+            companyId,
+            userId,
+            action: selfValidated
+                ? 'EXPENSE_SELF_VALIDATED'
+                : input.status === ExpenseStatus.VALIDEE
+                    ? 'EXPENSE_VALIDATED'
+                    : 'EXPENSE_REJECTED',
+            entityType: 'Expense',
+            entityId: expenseId,
+            metadata: {
+                from: ExpenseStatus.SOUMISE,
+                to: input.status,
+                amount: expense.amount.toString(),
+                chantierId: expense.chantierId,
+                selfValidated,
+            },
+        });
         return this.prisma.expense.findFirst({ where: { id: expenseId, companyId }, select: expenseSelect });
     }
     async getBudget(companyId, userId, chantierId) {
@@ -132,16 +171,36 @@ let ExpensesService = class ExpensesService {
                 companyId,
                 chantier: { companyId, projectMembers: { some: { companyId, userId } } },
             },
-            select: { id: true, status: true },
+            select: { id: true, status: true, userId: true, amount: true, chantierId: true },
         });
         if (!expense)
             throw new NotFoundException('Dépense introuvable ou inaccessible.');
         return expense;
     }
+    async isSelfValidationExempt(companyId, userId) {
+        const userRoles = await this.prisma.userRole.findMany({
+            where: { userId, user: { companyId, active: true } },
+            select: { role: { select: { name: true } } },
+        });
+        return userRoles.some((userRole) => userRole.role.name === SELF_VALIDATION_EXEMPT_ROLE);
+    }
+    describeBlockedValidation(status) {
+        if (status === ExpenseStatus.BROUILLON) {
+            return 'Cette dépense est encore un brouillon : son auteur doit la soumettre avant qu’elle puisse être validée.';
+        }
+        if (status === ExpenseStatus.VALIDEE) {
+            return 'Cette dépense a déjà été validée : la validation est définitive et impacte le budget consommé.';
+        }
+        if (status === ExpenseStatus.REJETEE) {
+            return 'Cette dépense a déjà été rejetée : elle reste hors budget et ne peut plus être validée.';
+        }
+        return 'La dépense ne peut pas être validée dans son état actuel.';
+    }
 };
 ExpensesService = __decorate([
     Injectable(),
-    __metadata("design:paramtypes", [PrismaService])
+    __metadata("design:paramtypes", [PrismaService,
+        AuditService])
 ], ExpensesService);
 export { ExpensesService };
 //# sourceMappingURL=expenses.service.js.map

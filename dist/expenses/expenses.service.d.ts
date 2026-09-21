@@ -1,11 +1,13 @@
 import { Prisma } from '@prisma/client';
+import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateExpenseDto } from './dto/create-expense.dto.js';
 import { UpdateExpenseDto } from './dto/update-expense.dto.js';
 import { ValidateExpenseDto } from './dto/validate-expense.dto.js';
 export declare class ExpensesService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
+    private readonly auditService;
+    constructor(prisma: PrismaService, auditService: AuditService);
     findAll(companyId: string, userId: string, chantierId?: string): Prisma.PrismaPromise<{
         user: {
             email: string;
@@ -111,4 +113,6 @@ export declare class ExpensesService {
     }>;
     private assertChantierMembership;
     private findAccessibleExpense;
+    private isSelfValidationExempt;
+    private describeBlockedValidation;
 }
