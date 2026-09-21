@@ -8,7 +8,9 @@ const chantierId = '33333333-3333-4333-8333-333333333333';
 
 describe('ProjectMembersService', () => {
   const userFindFirst = vi.fn();
+  const userFindMany = vi.fn();
   const chantierFindFirst = vi.fn();
+  const chantierFindMany = vi.fn();
   const projectMemberUpsert = vi.fn();
   const projectMemberFindMany = vi.fn();
   const projectMemberDeleteMany = vi.fn();
@@ -17,8 +19,8 @@ describe('ProjectMembersService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     service = new ProjectMembersService({
-      user: { findFirst: userFindFirst },
-      chantier: { findFirst: chantierFindFirst },
+      user: { findFirst: userFindFirst, findMany: userFindMany },
+      chantier: { findFirst: chantierFindFirst, findMany: chantierFindMany },
       projectMember: {
         upsert: projectMemberUpsert,
         findMany: projectMemberFindMany,
@@ -58,5 +60,35 @@ describe('ProjectMembersService', () => {
 
     await expect(service.remove(companyId, userId, chantierId)).resolves.toEqual({ removed: true });
     expect(projectMemberDeleteMany).toHaveBeenCalledWith({ where: { companyId, userId, chantierId } });
+  });
+
+  it('lists only active users and scope candidates to the calling company', async () => {
+    userFindMany.mockResolvedValue([
+      {
+        id: userId,
+        name: 'Admin Démo',
+        email: 'admin@exemple.test',
+        userRoles: [{ role: { id: 'role-1', name: 'ADMIN' } }],
+      },
+      { id: 'user-2', name: 'Sans rôle', email: 'sans.role@exemple.test', userRoles: [] },
+    ]);
+    chantierFindMany.mockResolvedValue([{ id: chantierId, name: 'École Tokpa', status: 'EN_COURS' }]);
+
+    const result = await service.findCandidates(companyId);
+
+    expect(userFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { companyId, active: true } }),
+    );
+    expect(chantierFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { companyId } }),
+    );
+    // Les rôles sont aplatis : l'interface n'a pas à connaître la table de jointure Prisma.
+    expect(result).toEqual({
+      users: [
+        { id: userId, name: 'Admin Démo', email: 'admin@exemple.test', roles: [{ id: 'role-1', name: 'ADMIN' }] },
+        { id: 'user-2', name: 'Sans rôle', email: 'sans.role@exemple.test', roles: [] },
+      ],
+      chantiers: [{ id: chantierId, name: 'École Tokpa', status: 'EN_COURS' }],
+    });
   });
 });

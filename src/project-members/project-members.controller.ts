@@ -18,6 +18,16 @@ export class ProjectMembersController {
     return this.projectMembersService.findAll(user.companyId);
   }
 
+  /**
+   * Candidats disponibles pour une affectation (utilisateurs actifs + chantiers de l'entreprise).
+   * Déclaré avant les routes paramétrées pour éviter toute capture par une route générique.
+   */
+  @Get('candidates')
+  @RequirePermissions('project_member.manage')
+  findCandidates(@CurrentUser() user: AuthenticatedRequestUser) {
+    return this.projectMembersService.findCandidates(user.companyId);
+  }
+
   @Post()
   @RequirePermissions('project_member.manage')
   assign(@CurrentUser() user: AuthenticatedRequestUser, @Body() input: AssignProjectMemberDto) {

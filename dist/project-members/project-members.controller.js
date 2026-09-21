@@ -25,6 +25,9 @@ let ProjectMembersController = class ProjectMembersController {
     findAll(user) {
         return this.projectMembersService.findAll(user.companyId);
     }
+    findCandidates(user) {
+        return this.projectMembersService.findCandidates(user.companyId);
+    }
     assign(user, input) {
         return this.projectMembersService.assign(user.companyId, input);
     }
@@ -40,6 +43,14 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], ProjectMembersController.prototype, "findAll", null);
+__decorate([
+    Get('candidates'),
+    RequirePermissions('project_member.manage'),
+    __param(0, CurrentUser()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], ProjectMembersController.prototype, "findCandidates", null);
 __decorate([
     Post(),
     RequirePermissions('project_member.manage'),

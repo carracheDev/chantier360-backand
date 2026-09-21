@@ -19,6 +19,22 @@ export declare class ProjectMembersService {
         chantierId: string;
         assignedAt: Date;
     }[]>;
+    findCandidates(companyId: string): Promise<{
+        users: {
+            id: string;
+            name: string;
+            email: string;
+            roles: {
+                name: string;
+                id: string;
+            }[];
+        }[];
+        chantiers: {
+            name: string;
+            id: string;
+            status: import("@prisma/client").$Enums.ChantierStatus;
+        }[];
+    }>;
     assign(companyId: string, input: AssignProjectMemberDto): Promise<{
         userId: string;
         chantierId: string;

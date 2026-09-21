@@ -20,6 +20,43 @@ export class ProjectMembersService {
     });
   }
 
+  /**
+   * Candidats à une affectation : utilisateurs actifs et chantiers de l'entreprise.
+   *
+   * `GET /chantiers` reste volontairement limité aux chantiers dont l'appelant est membre :
+   * un administrateur qui gère les affectations doit donc disposer d'une vue société complète,
+   * sans pour autant obtenir la lecture métier des chantiers (permission chantier.read).
+   */
+  async findCandidates(companyId: string) {
+    const [users, chantiers] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { companyId, active: true },
+        orderBy: { name: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          userRoles: { select: { role: { select: { id: true, name: true } } } },
+        },
+      }),
+      this.prisma.chantier.findMany({
+        where: { companyId },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, status: true },
+      }),
+    ]);
+
+    return {
+      users: users.map((user) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        roles: user.userRoles.map((userRole) => userRole.role),
+      })),
+      chantiers,
+    };
+  }
+
   async assign(companyId: string, input: AssignProjectMemberDto) {
     const [user, chantier] = await Promise.all([
       this.prisma.user.findFirst({ where: { id: input.userId, companyId, active: true }, select: { id: true } }),

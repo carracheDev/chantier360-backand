@@ -27,6 +27,34 @@ let ProjectMembersService = class ProjectMembersService {
             },
         });
     }
+    async findCandidates(companyId) {
+        const [users, chantiers] = await Promise.all([
+            this.prisma.user.findMany({
+                where: { companyId, active: true },
+                orderBy: { name: 'asc' },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    userRoles: { select: { role: { select: { id: true, name: true } } } },
+                },
+            }),
+            this.prisma.chantier.findMany({
+                where: { companyId },
+                orderBy: { name: 'asc' },
+                select: { id: true, name: true, status: true },
+            }),
+        ]);
+        return {
+            users: users.map((user) => ({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                roles: user.userRoles.map((userRole) => userRole.role),
+            })),
+            chantiers,
+        };
+    }
     async assign(companyId, input) {
         const [user, chantier] = await Promise.all([
             this.prisma.user.findFirst({ where: { id: input.userId, companyId, active: true }, select: { id: true } }),

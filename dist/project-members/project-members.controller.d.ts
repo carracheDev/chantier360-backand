@@ -20,6 +20,22 @@ export declare class ProjectMembersController {
         chantierId: string;
         assignedAt: Date;
     }[]>;
+    findCandidates(user: AuthenticatedRequestUser): Promise<{
+        users: {
+            id: string;
+            name: string;
+            email: string;
+            roles: {
+                name: string;
+                id: string;
+            }[];
+        }[];
+        chantiers: {
+            name: string;
+            id: string;
+            status: import("@prisma/client").$Enums.ChantierStatus;
+        }[];
+    }>;
     assign(user: AuthenticatedRequestUser, input: AssignProjectMemberDto): Promise<{
         userId: string;
         chantierId: string;
