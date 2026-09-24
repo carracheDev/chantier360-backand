@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { PermissionsGuard } from '../auth/permissions.guard.js';
@@ -24,6 +24,11 @@ let AuditController = class AuditController {
     findAll(user, limit) {
         return this.auditService.findAll(user.companyId, limit ? Number(limit) : undefined);
     }
+    findByEntity(user, entityType, entityId, limit) {
+        if (entityType !== 'Expense')
+            return [];
+        return this.auditService.findByEntity(user.companyId, entityType, entityId, limit ? Number(limit) : 20);
+    }
 };
 __decorate([
     Get(),
@@ -34,6 +39,17 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], AuditController.prototype, "findAll", null);
+__decorate([
+    Get('entity/:entityType/:entityId'),
+    RequirePermissions('expense.read'),
+    __param(0, CurrentUser()),
+    __param(1, Param('entityType')),
+    __param(2, Param('entityId')),
+    __param(3, Query('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String, String]),
+    __metadata("design:returntype", void 0)
+], AuditController.prototype, "findByEntity", null);
 AuditController = __decorate([
     Controller('audit'),
     UseGuards(JwtAuthGuard, PermissionsGuard),

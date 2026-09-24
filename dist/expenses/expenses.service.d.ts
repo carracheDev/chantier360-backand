@@ -9,97 +9,97 @@ export declare class ExpensesService {
     private readonly auditService;
     constructor(prisma: PrismaService, auditService: AuditService);
     findAll(companyId: string, userId: string, chantierId?: string): Prisma.PrismaPromise<{
-        user: {
-            email: string;
-            name: string;
-            id: string;
-        } | null;
-        companyId: string;
         id: string;
         createdAt: Date;
-        updatedAt: Date;
+        user: {
+            id: string;
+            name: string;
+            email: string;
+        } | null;
+        companyId: string;
         userId: string | null;
-        description: string | null;
+        updatedAt: Date;
         chantierId: string;
-        status: import("@prisma/client").$Enums.ExpenseStatus;
         category: string;
         amount: Prisma.Decimal;
+        description: string | null;
+        status: import("@prisma/client").$Enums.ExpenseStatus;
         date: Date;
         receiptUrl: string | null;
     }[]>;
     create(companyId: string, userId: string, input: CreateExpenseDto): Promise<{
-        user: {
-            email: string;
-            name: string;
-            id: string;
-        } | null;
-        companyId: string;
         id: string;
         createdAt: Date;
-        updatedAt: Date;
+        user: {
+            id: string;
+            name: string;
+            email: string;
+        } | null;
+        companyId: string;
         userId: string | null;
-        description: string | null;
+        updatedAt: Date;
         chantierId: string;
-        status: import("@prisma/client").$Enums.ExpenseStatus;
         category: string;
         amount: Prisma.Decimal;
+        description: string | null;
+        status: import("@prisma/client").$Enums.ExpenseStatus;
         date: Date;
         receiptUrl: string | null;
     }>;
     update(companyId: string, userId: string, expenseId: string, input: UpdateExpenseDto): Promise<{
-        user: {
-            email: string;
-            name: string;
-            id: string;
-        } | null;
-        companyId: string;
         id: string;
         createdAt: Date;
-        updatedAt: Date;
+        user: {
+            id: string;
+            name: string;
+            email: string;
+        } | null;
+        companyId: string;
         userId: string | null;
-        description: string | null;
+        updatedAt: Date;
         chantierId: string;
-        status: import("@prisma/client").$Enums.ExpenseStatus;
         category: string;
         amount: Prisma.Decimal;
+        description: string | null;
+        status: import("@prisma/client").$Enums.ExpenseStatus;
         date: Date;
         receiptUrl: string | null;
     }>;
     submit(companyId: string, userId: string, expenseId: string): Promise<{
-        user: {
-            email: string;
-            name: string;
-            id: string;
-        } | null;
-        companyId: string;
         id: string;
         createdAt: Date;
-        updatedAt: Date;
+        user: {
+            id: string;
+            name: string;
+            email: string;
+        } | null;
+        companyId: string;
         userId: string | null;
-        description: string | null;
+        updatedAt: Date;
         chantierId: string;
-        status: import("@prisma/client").$Enums.ExpenseStatus;
         category: string;
         amount: Prisma.Decimal;
+        description: string | null;
+        status: import("@prisma/client").$Enums.ExpenseStatus;
         date: Date;
         receiptUrl: string | null;
     } | null>;
     validate(companyId: string, userId: string, expenseId: string, input: ValidateExpenseDto): Promise<{
-        user: {
-            email: string;
-            name: string;
-            id: string;
-        } | null;
-        companyId: string;
         id: string;
         createdAt: Date;
-        updatedAt: Date;
+        user: {
+            id: string;
+            name: string;
+            email: string;
+        } | null;
+        companyId: string;
         userId: string | null;
-        description: string | null;
+        updatedAt: Date;
         chantierId: string;
-        status: import("@prisma/client").$Enums.ExpenseStatus;
         category: string;
         amount: Prisma.Decimal;
+        description: string | null;
+        status: import("@prisma/client").$Enums.ExpenseStatus;
         date: Date;
         receiptUrl: string | null;
     } | null>;

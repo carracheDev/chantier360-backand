@@ -46,4 +46,22 @@ export class AuditService {
       },
     });
   }
+
+  findByEntity(companyId: string, entityType: string, entityId: string, limit = 20) {
+    return this.prisma.auditLog.findMany({
+      where: { companyId, entityType, entityId },
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(Math.max(limit, 1), 500),
+      select: {
+        id: true,
+        userId: true,
+        action: true,
+        entityType: true,
+        entityId: true,
+        metadata: true,
+        createdAt: true,
+        user: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
 }

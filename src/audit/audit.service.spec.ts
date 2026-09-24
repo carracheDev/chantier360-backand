@@ -27,4 +27,13 @@ describe('AuditService', () => {
 
     expect(auditFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { companyId }, take: 20 }));
   });
+
+  it('filters audit history for a specific entity', async () => {
+    await service.findByEntity(companyId, 'Expense', 'expense-id', 10);
+
+    expect(auditFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { companyId, entityType: 'Expense', entityId: 'expense-id' },
+      take: 10,
+    }));
+  });
 });

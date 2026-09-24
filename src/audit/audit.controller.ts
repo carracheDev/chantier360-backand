@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { PermissionsGuard } from '../auth/permissions.guard.js';
@@ -15,5 +15,17 @@ export class AuditController {
   @RequirePermissions('user.manage')
   findAll(@CurrentUser() user: AuthenticatedRequestUser, @Query('limit') limit?: string) {
     return this.auditService.findAll(user.companyId, limit ? Number(limit) : undefined);
+  }
+
+  @Get('entity/:entityType/:entityId')
+  @RequirePermissions('expense.read')
+  findByEntity(
+    @CurrentUser() user: AuthenticatedRequestUser,
+    @Param('entityType') entityType: string,
+    @Param('entityId') entityId: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (entityType !== 'Expense') return [];
+    return this.auditService.findByEntity(user.companyId, entityType, entityId, limit ? Number(limit) : 20);
   }
 }
